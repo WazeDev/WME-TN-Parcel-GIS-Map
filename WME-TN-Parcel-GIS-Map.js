@@ -1,11 +1,12 @@
 // ==UserScript==
 // @name         WME TN Parcel GIS Map
 // @namespace    https://greasyfork.org/users/45389
-// @version      2021.01.08.01
+// @version      2022.09.10.001
 // @description  Open the TN Parcel GIS map in another window, at the same location as the WME map.  Keeps the location of the GIS map synced to WME.
 // @author       MapOMatic
-// @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
-// @include     https://tnmap.tn.gov/assessment/
+// @match        *://*.waze.com/*editor*
+// @exclude      *://*.waze.com/user/editor*
+// @match        https://tnmap.tn.gov/assessment/
 // @license      GNU GPLv3
 // ==/UserScript==
  
