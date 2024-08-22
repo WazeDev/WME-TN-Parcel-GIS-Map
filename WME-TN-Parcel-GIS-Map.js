@@ -1,29 +1,26 @@
 // ==UserScript==
 // @name         WME TN Parcel GIS Map
 // @namespace    https://greasyfork.org/users/45389
-// @version      2024.08.21.001
+// @version      2024.08.22.000
 // @description  Open the TN Parcel GIS map in another window, at the same location as the WME map.  Keeps the location of the GIS map synced to WME.
 // @author       MapOMatic
 // @match        *://*.waze.com/*editor*
 // @exclude      *://*.waze.com/user/editor*
-// @match        https://tnmap.tn.gov/assessment/
+// @match        https://tnmap.tn.gov/assessment/beta/*
 // @license      GNU GPLv3
 // ==/UserScript==
 
 /* global W */
-/* global map */
 /* global OpenLayers */
 
 const URL_PROTOCOL = 'https://';
 const URL_DOMAIN = 'tnmap.tn.gov';
-const URL_PATH = '/assessment/';
+const URL_PATH = '/assessment/beta/';
 const WINDOW_NAME = 'tn_gis_map';
 const BUTTON_ID = 'tn-gis-button';
 const BUTTON_TITLE = 'Open the TN GIS map in a new window';
 const LOG_SCRIPT_NAME = 'TN Parcel GIS';
 
-let Extent;
-let SpatialReference;
 let _mapWindow;
 
 (function main() {
@@ -34,15 +31,6 @@ let _mapWindow;
     }
     function logDebug(message) {
         console.debug(LOG_SCRIPT_NAME, message);
-    }
-
-    function getOLMapExtent() {
-        let extent = W.map.getExtent();
-        if (Array.isArray(extent)) {
-            extent = new OpenLayers.Bounds(extent);
-            extent.transform('EPSG:4326', 'EPSG:3857');
-        }
-        return extent;
     }
 
     function onButtonClick() {
@@ -63,20 +51,21 @@ let _mapWindow;
             }
         }
         _mapWindow.focus();
-        syncGISMapExtent(_mapWindow);
+        setTimeout(() => syncGISMapExtent(_mapWindow), 2000);
     }
 
     function syncGISMapExtent(myMapWindow) {
         if (myMapWindow && !myMapWindow.closed) {
-            const wazeExt = getOLMapExtent();
+            const olCenterLonLat = W.map.getCenter();
+            const olPoint = new OpenLayers.Geometry.Point(olCenterLonLat.lon, olCenterLonLat.lat);
+            const wgs84Point = W.userscripts.toGeoJSONGeometry(olPoint);
+            const zoom = W.map.getZoom() - 1;
+            W.userscripts.toGeoJSONGeometry(olPoint);
             try {
                 myMapWindow.postMessage({
-                    type: 'setExtent',
-                    xmin: wazeExt.left,
-                    xmax: wazeExt.right,
-                    ymin: wazeExt.bottom,
-                    ymax: wazeExt.top,
-                    spatialReference: 102113
+                    lon: wgs84Point.coordinates[0],
+                    lat: wgs84Point.coordinates[1],
+                    zoom
                 }, URL_PROTOCOL + URL_DOMAIN);
             } catch (ex) {
                 log(ex);
@@ -116,19 +105,7 @@ let _mapWindow;
     function receiveMessageGIS(event) {
         logDebug(event);
         const { data } = event;
-        if (!Extent) {
-            Extent = unsafeWindow.require('esri/geometry/Extent');
-            SpatialReference = unsafeWindow.require('esri/SpatialReference');
-        }
-
-        const ext = new Extent({
-            xmin: data.xmin,
-            xmax: data.xmax,
-            ymin: data.ymin,
-            ymax: data.ymax,
-            spatialReference: new SpatialReference({ wkid: data.spatialReference })
-        });
-        map.setExtent(ext);
+        window.location.assign(`https://tnmap.tn.gov/assessment/beta/#/location/${data.lat}/${data.lon}/${data.zoom}`);
     }
 
     function bootstrap() {
