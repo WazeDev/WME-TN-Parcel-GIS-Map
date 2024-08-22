@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WME TN Parcel GIS Map
 // @namespace    https://greasyfork.org/users/45389
-// @version      2024.08.22.000
+// @version      2024.08.22.001
 // @description  Open the TN Parcel GIS map in another window, at the same location as the WME map.  Keeps the location of the GIS map synced to WME.
 // @author       MapOMatic
 // @match        *://*.waze.com/*editor*
@@ -102,10 +102,28 @@ let _mapWindow;
         logDebug('Initialized.');
     }
 
+    let waitingForDetailsToClose = false;
+    let lastData = null;
+
     function receiveMessageGIS(event) {
         logDebug(event);
         const { data } = event;
-        window.location.assign(`https://tnmap.tn.gov/assessment/beta/#/location/${data.lat}/${data.lon}/${data.zoom}`);
+        lastData = data;
+        if (!window.location.href.includes('parcel')) {
+            window.location.assign(`https://tnmap.tn.gov/assessment/beta/#/location/${data.lat}/${data.lon}/${data.zoom}`);
+        } else if (!waitingForDetailsToClose) {
+            waitingForDetailsToClose = true;
+            updateLocationWhenDetailsClosed();
+        }
+    }
+
+    function updateLocationWhenDetailsClosed() {
+        if (window.location.href.includes('parcel')) {
+            setTimeout(updateLocationWhenDetailsClosed, 100);
+        } else {
+            window.location.assign(`https://tnmap.tn.gov/assessment/beta/#/location/${lastData.lat}/${lastData.lon}/${lastData.zoom}`);
+            waitingForDetailsToClose = false;
+        }
     }
 
     function bootstrap() {
