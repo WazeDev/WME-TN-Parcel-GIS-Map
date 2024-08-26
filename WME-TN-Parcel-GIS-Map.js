@@ -11,7 +11,7 @@
 // ==/UserScript==
 
 /* global W */
-/* global OpenLayers */
+/* global getWmeSdk */
 
 const URL_PROTOCOL = 'https://';
 const URL_DOMAIN = 'tnmap.tn.gov';
@@ -22,6 +22,7 @@ const BUTTON_TITLE = 'Open the TN GIS map in a new window';
 const LOG_SCRIPT_NAME = 'TN Parcel GIS';
 
 let _mapWindow;
+let sdk;
 
 (function main() {
     'use strict';
@@ -56,15 +57,12 @@ let _mapWindow;
 
     function syncGISMapExtent(myMapWindow) {
         if (myMapWindow && !myMapWindow.closed) {
-            const olCenterLonLat = W.map.getCenter();
-            const olPoint = new OpenLayers.Geometry.Point(olCenterLonLat.lon, olCenterLonLat.lat);
-            const wgs84Point = W.userscripts.toGeoJSONGeometry(olPoint);
-            const zoom = W.map.getZoom() - 1;
-            W.userscripts.toGeoJSONGeometry(olPoint);
+            const centerPoint = sdk.Map.getMapCenter();
+            const zoom = sdk.Map.getZoomLevel();
             try {
                 myMapWindow.postMessage({
-                    lon: wgs84Point.coordinates[0],
-                    lat: wgs84Point.coordinates[1],
+                    lon: centerPoint.coordinates[0],
+                    lat: centerPoint.coordinates[1],
                     zoom
                 }, URL_PROTOCOL + URL_DOMAIN);
             } catch (ex) {
@@ -75,6 +73,8 @@ let _mapWindow;
 
     function init() {
         logDebug('Initializing...');
+        sdk = getWmeSdk({ scriptId: 'wmeTNGISParcelMap', scriptName: 'WME TN GIS Parcel Map' });
+
         $('.WazeControlPermalink').prepend(
             $('<div>').css({ float: 'left', display: 'inline-block', padding: '0px 5px 0px 3px' }).append(
                 $('<a>', { id: BUTTON_ID, title: BUTTON_TITLE })
@@ -97,6 +97,7 @@ let _mapWindow;
         }, 1000);
 
         /* Event listeners */
+        // SDK: FR submitted
         W.map.events.register('moveend', null, () => syncGISMapExtent(_mapWindow));
 
         logDebug('Initialized.');
@@ -129,11 +130,10 @@ let _mapWindow;
     function bootstrap() {
         if (window.location.host.toLowerCase() === URL_DOMAIN) {
             window.addEventListener('message', receiveMessageGIS, false);
-        } else if (W && W.loginManager && W.loginManager.events.register && W.map) {
+        } else if (window.getWmeSdk) {
             init();
         } else {
-            logDebug('Bootstrap failed. Trying again...');
-            window.setTimeout(bootstrap, 500);
+            document.addEventListener('wme-ready', init, { once: true });
         }
     }
 
