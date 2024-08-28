@@ -10,7 +10,6 @@
 // @license      GNU GPLv3
 // ==/UserScript==
 
-/* global W */
 /* global getWmeSdk */
 
 const URL_PROTOCOL = 'https://';
@@ -61,8 +60,8 @@ let sdk;
             const zoom = sdk.Map.getZoomLevel();
             try {
                 myMapWindow.postMessage({
-                    lon: centerPoint.coordinates[0],
-                    lat: centerPoint.coordinates[1],
+                    lon: centerPoint.lon,
+                    lat: centerPoint.lat,
                     zoom
                 }, URL_PROTOCOL + URL_DOMAIN);
             } catch (ex) {
@@ -98,7 +97,7 @@ let sdk;
 
         /* Event listeners */
         // SDK: FR submitted
-        W.map.events.register('moveend', null, () => syncGISMapExtent(_mapWindow));
+        document.addEventListener('wme-map-move', () => syncGISMapExtent(_mapWindow));
 
         logDebug('Initialized.');
     }
