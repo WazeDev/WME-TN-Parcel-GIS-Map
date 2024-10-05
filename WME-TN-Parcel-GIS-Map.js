@@ -12,6 +12,7 @@
 // @require      https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js
 // @require      https://update.greasyfork.org/scripts/509664/WME%20Utils%20-%20Bootstrap.js
 // @grant        GM_xmlhttpRequest
+// @connect      greasyfork.org
 // @license      GNU GPLv3
 // ==/UserScript==
 
