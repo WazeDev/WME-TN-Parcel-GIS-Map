@@ -1,3 +1,4 @@
+/* eslint-disable max-classes-per-file */
 // ==UserScript==
 // @name         WME TN Parcel GIS Map
 // @namespace    https://greasyfork.org/users/45389
@@ -7,135 +8,134 @@
 // @match        *://*.waze.com/*editor*
 // @exclude      *://*.waze.com/user/editor*
 // @match        https://tnmap.tn.gov/assessment/beta/*
+// @require      https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js
+// @require      https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js
+// @require      https://update.greasyfork.org/scripts/509664/WME%20Utils%20-%20Bootstrap.js
+// @grant        GM_xmlhttpRequest
 // @license      GNU GPLv3
 // ==/UserScript==
 
-/* global getWmeSdk */
+/* global bootstrap */
 
-const URL_PROTOCOL = 'https://';
-const URL_DOMAIN = 'tnmap.tn.gov';
-const URL_PATH = '/assessment/beta/';
-const WINDOW_NAME = 'tn_gis_map';
-const BUTTON_ID = 'tn-gis-button';
-const BUTTON_TITLE = 'Open the TN GIS map in a new window';
-const LOG_SCRIPT_NAME = 'TN Parcel GIS';
-
-let _mapWindow;
-let sdk;
-
-(function main() {
+(async function main() {
     'use strict';
 
-    function log(message) {
-        console.log(LOG_SCRIPT_NAME, message);
-    }
-    function logDebug(message) {
-        console.debug(LOG_SCRIPT_NAME, message);
-    }
+    const urlDomain = 'tnmap.tn.gov';
+    const isArcgisMap = window.location.host.toLowerCase() === urlDomain;
+    const scriptName = GM_info.script.name;
 
-    function onButtonClick() {
-        const url = URL_PROTOCOL + URL_DOMAIN + URL_PATH;
-        if (!_mapWindow || _mapWindow.closed) {
-            _mapWindow = window.open(null, WINDOW_NAME);
-            try {
-                if (_mapWindow.location && _mapWindow.location.href) {
-                    _mapWindow.location.assign(url);
-                    setTimeout(() => syncGISMapExtent(_mapWindow), 2000);
+    class WmeCode {
+        static mapWindow;
+        static urlProtocol = 'https://';
+        static urlPath = '/assessment/beta/';
+        static windowName = 'tn_gis_map';
+        static buttonId = 'tn-gis-button';
+        static buttonTitle = 'Open the TN GIS map in a new window';
+        static downloadUrl = 'https://update.greasyfork.org/scripts/369854/WME%20TN%20Parcel%20GIS%20Map.user.js';
+        static sdk;
+
+        static async init() {
+            this.sdk = await bootstrap({ scriptUpdateMonitor: { downloadUrl: this.downloadUrl } });
+            $('.WazeControlPermalink').prepend(
+                $('<div>').css({ float: 'left', display: 'inline-block', padding: '0px 5px 0px 3px' }).append(
+                    $('<a>', { id: this.buttonId, title: this.buttonTitle })
+                        .text('TN-GIS')
+                        .css({
+                            float: 'left',
+                            textDecoration: 'none',
+                            color: '#000000',
+                            fontWeight: 'bold'
+                        })
+                        .click(this.onButtonClick.bind(this))
+                )
+            );
+
+            setInterval(() => {
+                const $btn = $(`#${this.buttonId}`);
+                if ($btn.length > 0) {
+                    $btn.css('color', (this.mapWindow && !this.mapWindow.closed) ? '#1e9d12' : '#000000');
                 }
-            } catch (ex) {
-                if (ex.code === 18) {
-                // Ignore if accessing location.href is blocked by cross-domain.
-                } else {
-                    throw ex;
+            }, 1000);
+
+            // SDK: Need to replace this with a moveend event.
+            this.sdk.Events.on('wme-map-move', this.postMessage.bind(this));
+        }
+
+        static onButtonClick() {
+            const url = this.urlProtocol + urlDomain + this.urlPath;
+            if (!this.mapWindow || this.mapWindow.closed) {
+                this.mapWindow = window.open(null, this.windowName);
+                try {
+                    if (this.mapWindow.location?.href) {
+                        this.mapWindow.location.assign(url);
+                        setTimeout(this.postMessage.bind(this), 2000);
+                    }
+                } catch (ex) {
+                    if (ex.code === 18) {
+                    // Ignore if accessing location.href is blocked by cross-domain.
+                    } else {
+                        throw ex;
+                    }
+                }
+            }
+            this.mapWindow.focus();
+            setTimeout(this.postMessage.bind(this), 2000);
+        }
+
+        static postMessage() {
+            if (this.mapWindow && !this.mapWindow.closed) {
+                const centerPoint = this.sdk.Map.getMapCenter();
+                const zoom = this.sdk.Map.getZoomLevel();
+                try {
+                    this.mapWindow.postMessage({
+                        lon: centerPoint.lon,
+                        lat: centerPoint.lat,
+                        zoom
+                    }, this.urlProtocol + urlDomain);
+                } catch (ex) {
+                    console.log(scriptName, ex);
                 }
             }
         }
-        _mapWindow.focus();
-        setTimeout(() => syncGISMapExtent(_mapWindow), 2000);
     }
 
-    function syncGISMapExtent(myMapWindow) {
-        if (myMapWindow && !myMapWindow.closed) {
-            const centerPoint = sdk.Map.getMapCenter();
-            const zoom = sdk.Map.getZoomLevel();
-            try {
-                myMapWindow.postMessage({
-                    lon: centerPoint.lon,
-                    lat: centerPoint.lat,
-                    zoom
-                }, URL_PROTOCOL + URL_DOMAIN);
-            } catch (ex) {
-                log(ex);
+    class GisMapCode {
+        static waitingForDetailsToClose = false;
+        static lastData = null;
+
+        static init() {
+            window.addEventListener('message', this.receiveMessageGIS.bind(this), false);
+        }
+
+        static buildUrl(data) {
+            return `https://tnmap.tn.gov/assessment/beta/#/location/${data.lat}/${data.lon}/${data.zoom}`;
+        }
+
+        static receiveMessageGIS(event) {
+            console.log(scriptName, event.data);
+            const { data } = event;
+            this.lastData = data;
+            if (!window.location.href.includes('parcel')) {
+                window.location.assign(this.buildUrl(data));
+            } else if (!this.waitingForDetailsToClose) {
+                this.waitingForDetailsToClose = true;
+                this.updateLocationWhenDetailsClosed();
+            }
+        }
+
+        static updateLocationWhenDetailsClosed() {
+            if (window.location.href.includes('parcel')) {
+                setTimeout(this.updateLocationWhenDetailsClosed.bind(this), 100);
+            } else {
+                window.location.assign(this.buildUrl(this.lastData));
+                this.waitingForDetailsToClose = false;
             }
         }
     }
 
-    function init() {
-        logDebug('Initializing...');
-        sdk = getWmeSdk({ scriptId: 'wmeTNGISParcelMap', scriptName: 'WME TN GIS Parcel Map' });
-
-        $('.WazeControlPermalink').prepend(
-            $('<div>').css({ float: 'left', display: 'inline-block', padding: '0px 5px 0px 3px' }).append(
-                $('<a>', { id: BUTTON_ID, title: BUTTON_TITLE })
-                    .text('TN-GIS')
-                    .css({
-                        float: 'left',
-                        textDecoration: 'none',
-                        color: '#000000',
-                        fontWeight: 'bold'
-                    })
-                    .click(onButtonClick)
-            )
-        );
-
-        setInterval(() => {
-            const $btn = $(`#${BUTTON_ID}`);
-            if ($btn.length > 0) {
-                $btn.css('color', (_mapWindow && !_mapWindow.closed) ? '#1e9d12' : '#000000');
-            }
-        }, 1000);
-
-        /* Event listeners */
-        // SDK: FR submitted
-        document.addEventListener('wme-map-move', () => syncGISMapExtent(_mapWindow));
-
-        logDebug('Initialized.');
+    if (isArcgisMap) {
+        GisMapCode.init();
+    } else {
+        WmeCode.init();
     }
-
-    let waitingForDetailsToClose = false;
-    let lastData = null;
-
-    function receiveMessageGIS(event) {
-        logDebug(event);
-        const { data } = event;
-        lastData = data;
-        if (!window.location.href.includes('parcel')) {
-            window.location.assign(`https://tnmap.tn.gov/assessment/beta/#/location/${data.lat}/${data.lon}/${data.zoom}`);
-        } else if (!waitingForDetailsToClose) {
-            waitingForDetailsToClose = true;
-            updateLocationWhenDetailsClosed();
-        }
-    }
-
-    function updateLocationWhenDetailsClosed() {
-        if (window.location.href.includes('parcel')) {
-            setTimeout(updateLocationWhenDetailsClosed, 100);
-        } else {
-            window.location.assign(`https://tnmap.tn.gov/assessment/beta/#/location/${lastData.lat}/${lastData.lon}/${lastData.zoom}`);
-            waitingForDetailsToClose = false;
-        }
-    }
-
-    function bootstrap() {
-        if (window.location.host.toLowerCase() === URL_DOMAIN) {
-            window.addEventListener('message', receiveMessageGIS, false);
-        } else if (window.getWmeSdk) {
-            init();
-        } else {
-            document.addEventListener('wme-ready', init, { once: true });
-        }
-    }
-
-    logDebug('Bootstrap...');
-    bootstrap();
 })();
