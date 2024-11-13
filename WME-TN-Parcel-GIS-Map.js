@@ -7,6 +7,7 @@
 // @match        *://*.waze.com/*editor*
 // @exclude      *://*.waze.com/user/editor*
 // @match        https://tnmap.tn.gov/assessment/beta/*
+// @match        https://tnmap.tn.gov/assessment/*
 // @license      GNU GPLv3
 // ==/UserScript==
 
@@ -15,6 +16,8 @@
 
 const URL_PROTOCOL = 'https://';
 const URL_DOMAIN = 'tnmap.tn.gov';
+// !! USE THIS PATH AFTER BETA IS MOVED TO PROD !!
+// const URL_PATH = '/assessment/';
 const URL_PATH = '/assessment/beta/';
 const WINDOW_NAME = 'tn_gis_map';
 const BUTTON_ID = 'tn-gis-button';
