@@ -28,7 +28,7 @@
     class WmeCode {
         static mapWindow;
         static urlProtocol = 'https://';
-        static urlPath = '/assessment/beta/';
+        static urlPath = '/assessment/';
         static windowName = 'tn_gis_map';
         static buttonId = 'tn-gis-button';
         static buttonTitle = 'Open the TN GIS map in a new window';
@@ -58,8 +58,7 @@
                 }
             }, 1000);
 
-            // SDK: Need to replace this with a moveend event.
-            this.sdk.Events.on('wme-map-move', this.postMessage.bind(this));
+            this.sdk.Events.on({ eventName: 'wme-map-move-end', eventHandler: this.postMessage.bind(this) });
         }
 
         static onButtonClick() {
