@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WME TN Parcel GIS Map
 // @namespace    https://greasyfork.org/users/45389
-// @version      2024.08.22.001
+// @version      2024.12.08.000
 // @description  Open the TN Parcel GIS map in another window, at the same location as the WME map.  Keeps the location of the GIS map synced to WME.
 // @author       MapOMatic
 // @match        *://*.waze.com/*editor*
@@ -16,9 +16,7 @@
 
 const URL_PROTOCOL = 'https://';
 const URL_DOMAIN = 'tnmap.tn.gov';
-// !! USE THIS PATH AFTER BETA IS MOVED TO PROD !!
-// const URL_PATH = '/assessment/';
-const URL_PATH = '/assessment/beta/';
+const URL_PATH = '/assessment/';
 const WINDOW_NAME = 'tn_gis_map';
 const BUTTON_ID = 'tn-gis-button';
 const BUTTON_TITLE = 'Open the TN GIS map in a new window';
@@ -113,7 +111,7 @@ let _mapWindow;
         const { data } = event;
         lastData = data;
         if (!window.location.href.includes('parcel')) {
-            window.location.assign(`https://tnmap.tn.gov/assessment/beta/#/location/${data.lat}/${data.lon}/${data.zoom}`);
+            window.location.assign(`https://tnmap.tn.gov/assessment/#/location/${data.lat}/${data.lon}/${data.zoom}`);
         } else if (!waitingForDetailsToClose) {
             waitingForDetailsToClose = true;
             updateLocationWhenDetailsClosed();
@@ -124,7 +122,7 @@ let _mapWindow;
         if (window.location.href.includes('parcel')) {
             setTimeout(updateLocationWhenDetailsClosed, 100);
         } else {
-            window.location.assign(`https://tnmap.tn.gov/assessment/beta/#/location/${lastData.lat}/${lastData.lon}/${lastData.zoom}`);
+            window.location.assign(`https://tnmap.tn.gov/assessment/#/location/${lastData.lat}/${lastData.lon}/${lastData.zoom}`);
             waitingForDetailsToClose = false;
         }
     }
